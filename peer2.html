@@ -27,7 +27,11 @@
 <body>
     <h1>Peer 2</h1>
     <video id="remoteVideo" autoplay playsinline></video>
-    <div id="status">Connecting...</div>
+    <div>
+        <input type="text" id="serverIp" placeholder="Enter Signaling Server IP">
+        <button onclick="updateServerIp()">Set Server IP</button>
+    </div>
+    <div id="status">Waiting for server IP...</div>
     <script src="peer2.js"></script>
 </body>
 </html>
