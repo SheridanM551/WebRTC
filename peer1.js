@@ -25,7 +25,7 @@ navigator.mediaDevices.getUserMedia({ video: true, audio: false })
     })
     .catch(error => {
         console.error('Error accessing media devices.', error);
-        statusElement.textContent = 'Error accessing media devices';
+        statusElement.textContent = `Error accessing media devices: ${error.name} - ${error.message}`;
     });
 
 signalingSocket.onopen = () => {
@@ -44,11 +44,19 @@ signalingSocket.onmessage = (message) => {
         peerConnection.setRemoteDescription(new RTCSessionDescription(data.sdp))
             .then(() => {
                 statusElement.textContent = 'Received answer from peer';
+            })
+            .catch(error => {
+                console.error('Error setting remote description:', error);
+                statusElement.textContent = `Error setting remote description: ${error.name} - ${error.message}`;
             });
     } else if (data.type === 'candidate') {
         peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate))
             .then(() => {
                 statusElement.textContent = 'Received ICE candidate from peer';
+            })
+            .catch(error => {
+                console.error('Error adding ICE candidate:', error);
+                statusElement.textContent = `Error adding ICE candidate: ${error.name} - ${error.message}`;
             });
     }
 };
