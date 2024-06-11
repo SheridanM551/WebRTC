@@ -1,4 +1,4 @@
-const signalingServerUrl = 'ws://localhost:8080';
+const signalingServerUrl = 'ws://140.114.87.235:8080';
 const signalingSocket = new WebSocket(signalingServerUrl);
 
 const peerConnection = new RTCPeerConnection();
