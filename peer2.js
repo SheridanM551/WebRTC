@@ -3,9 +3,11 @@ const signalingSocket = new WebSocket(signalingServerUrl);
 
 const statusElement = document.getElementById('status');
 const peerConnection = new RTCPeerConnection();
+let isSignalingSocketOpen = false;
 
 signalingSocket.onopen = () => {
     statusElement.textContent = 'Connected to signaling server';
+    isSignalingSocketOpen = true;
 };
 
 signalingSocket.onerror = (error) => {
@@ -25,25 +27,43 @@ signalingSocket.onmessage = (message) => {
                 return peerConnection.setLocalDescription(answer);
             })
             .then(() => {
-                signalingSocket.send(JSON.stringify({ type: 'answer', sdp: peerConnection.localDescription }));
-                statusElement.textContent = 'Sent answer to signaling server';
+                if (isSignalingSocketOpen) {
+                    signalingSocket.send(JSON.stringify({ type: 'answer', sdp: peerConnection.localDescription }));
+                    statusElement.textContent = 'Sent answer to signaling server';
+                } else {
+                    signalingSocket.addEventListener('open', () => {
+                        signalingSocket.send(JSON.stringify({ type: 'answer', sdp: peerConnection.localDescription }));
+                        statusElement.textContent = 'Sent answer to signaling server';
+                    });
+                }
             })
             .catch(error => {
                 console.error('Error creating answer.', error);
-                statusElement.textContent = 'Error creating answer';
+                statusElement.textContent = `Error creating answer: ${error.name} - ${error.message}`;
             });
     } else if (data.type === 'candidate') {
         peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate))
             .then(() => {
                 statusElement.textContent = 'Received ICE candidate from peer';
+            })
+            .catch(error => {
+                console.error('Error adding ICE candidate:', error);
+                statusElement.textContent = `Error adding ICE candidate: ${error.name} - ${error.message}`;
             });
     }
 };
 
 peerConnection.onicecandidate = (event) => {
     if (event.candidate) {
-        signalingSocket.send(JSON.stringify({ type: 'candidate', candidate: event.candidate }));
-        statusElement.textContent = 'Sending ICE candidate to signaling server';
+        if (isSignalingSocketOpen) {
+            signalingSocket.send(JSON.stringify({ type: 'candidate', candidate: event.candidate }));
+            statusElement.textContent = 'Sending ICE candidate to signaling server';
+        } else {
+            signalingSocket.addEventListener('open', () => {
+                signalingSocket.send(JSON.stringify({ type: 'candidate', candidate: event.candidate }));
+                statusElement.textContent = 'Sending ICE candidate to signaling server';
+            });
+        }
     }
 };
 

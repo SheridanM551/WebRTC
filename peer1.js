@@ -4,6 +4,7 @@ const signalingSocket = new WebSocket(signalingServerUrl);
 const statusElement = document.getElementById('status');
 const peerConnection = new RTCPeerConnection();
 let localStream;
+let isSignalingSocketOpen = false;
 
 navigator.mediaDevices.getUserMedia({ video: true, audio: false })
     .then(stream => {
@@ -20,8 +21,16 @@ navigator.mediaDevices.getUserMedia({ video: true, audio: false })
         return peerConnection.setLocalDescription(offer);
     })
     .then(() => {
-        signalingSocket.send(JSON.stringify({ type: 'offer', sdp: peerConnection.localDescription }));
-        statusElement.textContent = 'Offer sent to signaling server';
+        if (isSignalingSocketOpen) {
+            signalingSocket.send(JSON.stringify({ type: 'offer', sdp: peerConnection.localDescription }));
+            statusElement.textContent = 'Offer sent to signaling server';
+        } else {
+            statusElement.textContent = 'Waiting for signaling server connection...';
+            signalingSocket.addEventListener('open', () => {
+                signalingSocket.send(JSON.stringify({ type: 'offer', sdp: peerConnection.localDescription }));
+                statusElement.textContent = 'Offer sent to signaling server';
+            });
+        }
     })
     .catch(error => {
         console.error('Error accessing media devices.', error);
@@ -30,6 +39,7 @@ navigator.mediaDevices.getUserMedia({ video: true, audio: false })
 
 signalingSocket.onopen = () => {
     statusElement.textContent = 'Connected to signaling server';
+    isSignalingSocketOpen = true;
 };
 
 signalingSocket.onerror = (error) => {
@@ -63,7 +73,14 @@ signalingSocket.onmessage = (message) => {
 
 peerConnection.onicecandidate = (event) => {
     if (event.candidate) {
-        signalingSocket.send(JSON.stringify({ type: 'candidate', candidate: event.candidate }));
-        statusElement.textContent = 'Sending ICE candidate to signaling server';
+        if (isSignalingSocketOpen) {
+            signalingSocket.send(JSON.stringify({ type: 'candidate', candidate: event.candidate }));
+            statusElement.textContent = 'Sending ICE candidate to signaling server';
+        } else {
+            signalingSocket.addEventListener('open', () => {
+                signalingSocket.send(JSON.stringify({ type: 'candidate', candidate: event.candidate }));
+                statusElement.textContent = 'Sending ICE candidate to signaling server';
+            });
+        }
     }
 };
