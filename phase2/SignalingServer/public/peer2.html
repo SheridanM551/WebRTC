@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Peer 2</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+        video {
+            max-width: 100%;
+            max-height: 80%;
+        }
+        #status {
+            margin-top: 20px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Peer 2</h1>
+    <video id="remoteVideo" autoplay playsinline></video>
+    <div>
+        <input type="text" id="serverIp" placeholder="Enter Signaling Server IP">
+        <button onclick="updateServerIp()">Set Server IP</button>
+    </div>
+    <div id="status">Waiting for server IP...</div>
+    <script src="socket-io.js"></script>
+    <script src="peer2.js"></script>
+</body>
+</html>
