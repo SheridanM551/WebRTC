@@ -20,7 +20,9 @@ node server.js
 ## peer2 接收端 一樣 run 在筆電 or nano
 瀏覽器開啟：https://localhost:3000/
 點選peer2。
+網址輸入`localhost`。
 
 ## peer1 輸入端 run 在智慧影鏡或手機
 瀏覽器開啟：https://{你的筆電的wifi ipv4}:3000/
 查詢你的筆電的wifi ipv4： cmd ipconfig (on windows)
+網址輸入筆電的ip。
