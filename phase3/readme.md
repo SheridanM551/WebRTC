@@ -25,10 +25,11 @@ shell:
 ## peer2 接收端 一樣 run 在筆電 or nano
 shell輸入：
 ```bash
-    python peer2.py (--debugmode 1)
+    python peer2.py (--recv 1) (--inferenced 1)
 ```
 參數：
-* debugmode: 啟用opencv，讓peer2顯示接收到的畫面。按q結束畫面。
+* recv: 啟用opencv，讓peer2顯示接收到的畫面。按q結束畫面。
+* inferenced: 啟用opencv，讓peer2顯示推論結果(包含bbox)。按q結束畫面。
 
 細節：
 * 當python log只顯示：Connected to signaling server, waiting for Offer，代表在等peer1送訊號，如果你先啟動peer1，就再點一次set server ip。
@@ -39,7 +40,9 @@ shell輸入：
 
 **請注意第一次一定要手動輸入https://**
 
-查詢你的筆電的wifi ipv4： cmd ipconfig (on windows)
+~~查詢你的筆電的wifi ipv4： cmd ipconfig (on windows)~~
+
+執行server.js應該會自動印出wifi ipv4了。
 
 網址輸入筆電的ip。(理論上自動填入了)
 

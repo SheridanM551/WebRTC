@@ -54,7 +54,7 @@ function updateServerIp() {
     });
 
     function startWebRTCProcess() {
-        navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+        navigator.mediaDevices.getUserMedia({ video: true, audio: false , video: { facingMode: "environment" }})
             .then(stream => {
                 localStream = stream;
                 document.getElementById('localVideo').srcObject = stream;

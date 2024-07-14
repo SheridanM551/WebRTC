@@ -3,7 +3,27 @@ const https = require('https');
 const express = require('express');
 const app = express();
 const port = process.env.PORT || 3000;
+const os = require('os');
 
+// 獲取所有網絡接口
+const networkInterfaces = os.networkInterfaces();
+
+const print_wifi_ip = () => {
+    // 這裡設定你的 WiFi 接口名稱
+    const wifiInterfaceName = 'Wi-Fi';  // 這可能需要根據你的作業系統進行調整
+    // 檢查是否存在 WiFi 網絡接口
+    if (networkInterfaces[wifiInterfaceName]) {
+        networkInterfaces[wifiInterfaceName].forEach(function(details) {
+            if (details.family === 'IPv4' && !details.internal) {
+                console.log(`WiFi IPv4 Address: ${details.address}`);
+            }
+        });
+    } else {
+        console.log('WiFi interface not found. Please check the interface name.');
+        console.log(networkInterfaces)
+    }
+}
+print_wifi_ip();
 // 讀取自簽名證書
 const server = https.createServer({
     cert: fs.readFileSync('ssl/cert.pem'), // 替換為你的證書路徑
