@@ -24,6 +24,18 @@ async def connect():
 async def connect_error(data):
     print("Connection failed:", data)
 
+class DroppingQueue(asyncio.Queue):
+    '''
+        原本的asyncio.Queue不支援queue滿了後，丟棄最早的frame的功能，這可能造成frame堆積。
+    '''
+    def __init__(self, maxsize=10):
+        super().__init__(maxsize=maxsize)
+
+    async def put(self, item):
+        while self.full():
+            self.get_nowait()  # if full, drop first frame. FIFO.
+        await super().put(item)  # add new frame
+
 # 模型相關的函數
 async def init_model(model_path):
     # 加載模型
@@ -34,7 +46,10 @@ async def init_model(model_path):
     model(dummy_data, verbose=False)
     print("Cold start finished.")
     return model
-def letterbox_image(image, size):
+def preprocess(image, size):
+    '''
+        resize and padding to given size.
+    '''
     ih, iw = image.shape[:2]
     w, h = size
     scale = min(w/iw, h/ih)
@@ -49,7 +64,7 @@ def letterbox_image(image, size):
     return image_padded, scale, top, left
 def sync_inference(frame, model):
     # 定義一個內部函數來處理同步的部分
-    frame_padded, scale, top, left = letterbox_image(frame, (640, 640))
+    frame_padded, scale, top, left = preprocess(frame, (640, 640))
     results = model(frame_padded, verbose=False)
     return results, scale, top, left
 async def async_inference(model, frame):
@@ -103,17 +118,17 @@ async def main(args):
     async def on_track_received(track: RemoteStreamTrack):
         global is_inferencing, should_continue, frame_count, start_time
         print("Track received, kind:", track.kind)
+
+        # 覆寫掉RemoteStreamTrack的asyncio.queue -> DroppingQueue
+        track._queue = DroppingQueue(3) # 最多保留10幀
+
         if track.kind == "video":
             try:
                 start_time = time.time()
                 frame_count = 0
+                inference_time=0
                 while should_continue:
                     frame = await track.recv()
-                    if time.time() - start_time > 1:
-                        # 每秒顯示一次FPS
-                        print(f"FPS: {frame_count}")
-                        start_time = time.time()
-                        frame_count = 0
                     if not is_inferencing:
                         image = frame.to_ndarray(format="bgr24")
                         
@@ -126,7 +141,9 @@ async def main(args):
                         
                         # 啟動推理鎖定
                         is_inferencing = True
+                        t1=time.time()
                         results, scale, top, left = await async_inference(model, image)
+                        inference_time+=time.time()-t1
                         is_inferencing = False
                         frame_count += 1
 
@@ -137,6 +154,13 @@ async def main(args):
                                 should_continue = False
                                 print("Stop receiving video.")
                                 break
+                    if time.time() - start_time > 1:
+                        # 每秒顯示一次FPS
+                        inference_time/=frame_count
+                        print(f"FPS: {frame_count}, recv frame size: {frame.to_ndarray(format='bgr24').shape}, avg. inference time: {inference_time:.3f}sec")
+                        inference_time=0
+                        start_time = time.time()
+                        frame_count = 0
             except (asyncio.CancelledError, KeyboardInterrupt):
                 print("Stream ended.")
                 should_continue = False
@@ -214,6 +238,7 @@ if __name__ == "__main__":
     arg = argparse.ArgumentParser()
     arg.add_argument("--model", default="best.onnx", type=str)
     arg.add_argument("--recv", default=False, type=bool)
+    arg.add_argument("--padded", default=False, type=bool)
     arg.add_argument("--inferenced", default=False, type=bool)
     args = arg.parse_args()
     asyncio.run(main(args))

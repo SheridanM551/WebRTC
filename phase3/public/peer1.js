@@ -54,7 +54,28 @@ function updateServerIp() {
     });
 
     function startWebRTCProcess() {
-        navigator.mediaDevices.getUserMedia({ video: true, audio: false , video: { facingMode: "environment" }})
+        let w, h;
+        // get resoultion selection
+        if (document.getElementById('resolution').value == "default") {
+            w = 640;
+            h = 480;
+        } else if (document.getElementById('resolution').value == "1280x960") {
+            w = 1280;
+            h = 720;
+        } else if (document.getElementById('resolution').value == "1920x1280") {
+            w = 1920;
+            h = 1080;
+        } 
+
+        // close existing connections
+        if (localStream) {
+            localStream.getTracks().forEach(track => {
+                track.stop();
+            });
+            localStream = null;
+        }
+
+        navigator.mediaDevices.getUserMedia({ video: true, audio: false , video: { facingMode: "environment", width: w , height: h }})
             .then(stream => {
                 localStream = stream;
                 document.getElementById('localVideo').srcObject = stream;

@@ -41,6 +41,10 @@ function findNowRoom(client) {
     });
 }
 
+// auto reconnection
+peer1offer = null;
+
+
 io.on('connection', client => {
     const { name } = client.handshake.query; // 獲取客戶端的 name 參數
     console.log(`socket 用戶連接 ${client.id} - 名字: ${name}`);
@@ -55,10 +59,17 @@ io.on('connection', client => {
         client.join(room, () => {
             io.sockets.in(room).emit('roomBroadcast', `${name} 已經加入聊天室！`);
         });
+        // if (peer1offer && name === 'peer2') {
+        //     client.emit('peerconnectSignaling', peer1offer);
+        //     peer1offer = null;
+        // }
     });
 
     client.on('peerconnectSignaling', message => {
         const nowRoom = "room1"; //原本是用findNowRoom，但不知為何有錯，這裡直接寫死
+        if (message['type'] === 'offer') {
+            peer1offer = message;
+        }
         console.log(`${name} 傳送了：`, message['type'], `, boardcasting to ${nowRoom}`);
         client.to(nowRoom).emit('peerconnectSignaling', message);
     });

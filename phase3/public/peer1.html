@@ -29,6 +29,12 @@
     <video id="localVideo" autoplay playsinline></video>
     <div>
         <input type="text" id="serverIp" placeholder="Enter Signaling Server IP">
+        <select id="resolution" value="640x480">
+            <option value="640x480">640x480</option>
+            <option value="1280x960">1280x960</option>
+            <option value="1920x1280">1920x1280</option>
+        </select>
+
         <button onclick="updateServerIp()">Set Server IP</button>
     </div>
     <div id="status">Waiting for server IP...</div>
