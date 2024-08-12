@@ -5,4 +5,5 @@
 * phase 3:
     * https://www.canva.com/design/DAGKh-PU9YY/i5f5yY6zF8wwzwuHXgCv-w/view?utm_content=DAGKh-PU9YY&utm_campaign=designshare&utm_medium=link&utm_source=editor
 
+每一個phase都有readme.md，請先閱讀他們。
 有任何疑問：943089@gmail.com

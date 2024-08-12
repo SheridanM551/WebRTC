@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import asyncio
 import cv2  # 導入 OpenCV
 import numpy as np
@@ -8,9 +9,16 @@ import argparse
 from ultralytics import YOLO
 import onnxruntime as onnx
 import time
+import json
 
 sio = socketio.AsyncClient(ssl_verify=False)
-
+is_inferencing = False  # 推理鎖定標記
+should_continue = True  # 控制整個迴圈的標記
+frame_count = 0         # 計數推理的幀數
+start_time = None       # 計時開始
+data_channel = None     # DataChannel
+data_channel_opened = False  # DataChannel是否已經打開
+model = None            # 模型
 async def connect_to_signaling_server(server_ip, client_name):
     url = f'https://{server_ip}:3000?name={client_name}'
     await sio.connect(url, socketio_path='/socket.io/')
@@ -38,6 +46,10 @@ class DroppingQueue(asyncio.Queue):
 
 # 模型相關的函數
 async def init_model(model_path):
+    global model
+    if(model != None): 
+        print("Model already loaded. Skip loading.")
+        return
     # 加載模型
     print(f"Loading model from {model_path}, please wait...")
     model = YOLO(model_path, task="detect")
@@ -45,7 +57,6 @@ async def init_model(model_path):
     dummy_data = np.zeros((640, 640, 3), dtype=np.uint8)  # 創建一個虛擬的黑色圖像
     model(dummy_data, verbose=False)
     print("Cold start finished.")
-    return model
 def preprocess(image, size):
     '''
         resize and padding to given size.
@@ -76,6 +87,7 @@ async def async_inference(model, frame):
     return results, scale, top, left
 def draw_boxes(frame, results, scale, top, left, class_names):
     # 在幀上繪製辨識結果
+    results = results[:1]  # 只取第一個結果
     for result in results:
         boxes = result.boxes.xyxy.cpu().numpy()  # 提取邊界框
         scores = result.boxes.conf.cpu().numpy()  # 提取置信度
@@ -96,19 +108,93 @@ def draw_boxes(frame, results, scale, top, left, class_names):
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
             cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
     return frame
+def send_bbox_info(results, scale, top, left, class_names, h, w):
+    global data_channel
+    # 將辨識結果轉換為JSON格式
+    bboxes = []
+    for result in results:
+        boxes = result.boxes.xyxy.cpu().numpy()  # 提取邊界框
+        scores = result.boxes.conf.cpu().numpy()  # 提取置信度
+        classes = result.boxes.cls.cpu().numpy()  # 提取類別
 
-is_inferencing = False  # 推理鎖定標記
-should_continue = True  # 控制整個迴圈的標記
-frame_count = 0         # 計數推理的幀數
-start_time = None       # 計時開始
+        for i in range(len(boxes)):
+            x1, y1, x2, y2 = boxes[i]
+            x1 = int((x1 - left) / scale)
+            y1 = int((y1 - top) / scale)
+            x2 = int((x2 - left) / scale)
+            y2 = int((y2 - top) / scale)
+
+            conf = scores[i]
+            cls = int(classes[i])
+            label = f'{class_names[cls]} {conf:.2f}'
+            bboxes.append({
+                'h': h, # 原始影像大小
+                'w': w, # 原始影像大小
+                'x1': x1,
+                'y1': y1,
+                'x2': x2,
+                'y2': y2,
+                'label': label,
+                'class': cls
+            })
+    
+    # 發送辨識結果 by data channel
+    data_channel.send(json.dumps(
+        {
+            'type': 'bbox',
+            'bboxes': bboxes
+        }
+    ))
 
 async def main(args):
+    global data_channel, pc
     # 初始化模型
-    model = await init_model(args.model)
+    await init_model(args.model)
 
     pc = RTCPeerConnection()
 
-    data_channel = pc.createDataChannel("chat")
+    pc.createDataChannel("dummy channel")
+
+    @pc.on('datachannel')
+    def on_datachannel(channel):
+        global data_channel, data_channel_opened
+        try:
+            data_channel = channel
+            print("Data channel:", data_channel.label, "opened.")
+            data_channel_opened = True
+        except Exception as e:
+            print("Error creating data channel:", e)
+        
+        @data_channel.on("message")
+        async def on_data_channel_message(message): # 測試用，有收到代表data channel正常運作，目前拿來計算RTT
+            try:
+                data = json.loads(message)
+            except json.JSONDecodeError:
+                print("Received invalid JSON message:", message)
+                return
+            if data['type'] == 'timestamp':
+                print("Received timestamp:", data['timestamp'])
+                # 回傳原時間戳以計算 RTT
+                response = json.dumps({
+                    'type': 'timestamp-reply',
+                    'originalTimestamp': data['timestamp']
+                })
+                data_channel.send(response)
+            else:
+                print("Received unknown message:", message)
+            
+
+        @data_channel.on("close")
+        async def on_data_channel_close():
+            print("Data channel closed.")
+            global data_channel_opened
+            data_channel_opened = False
+        
+        @data_channel.on("error")
+        async def on_data_channel_error(error):
+            print("Data channel error:", error)
+
+
     server_ip = "localhost" 
     client_name = "peer2"
 
@@ -116,7 +202,7 @@ async def main(args):
     
     @pc.on('track')
     async def on_track_received(track: RemoteStreamTrack):
-        global is_inferencing, should_continue, frame_count, start_time
+        global is_inferencing, should_continue, frame_count, start_time, data_channel_opened
         print("Track received, kind:", track.kind)
 
         # 覆寫掉RemoteStreamTrack的asyncio.queue -> DroppingQueue
@@ -143,6 +229,8 @@ async def main(args):
                         is_inferencing = True
                         t1=time.time()
                         results, scale, top, left = await async_inference(model, image)
+                        if data_channel_opened:
+                            send_bbox_info(results, scale, top, left, model.names, image.shape[0], image.shape[1])
                         inference_time+=time.time()-t1
                         is_inferencing = False
                         frame_count += 1
@@ -161,13 +249,13 @@ async def main(args):
                         inference_time=0
                         start_time = time.time()
                         frame_count = 0
-            except (asyncio.CancelledError, KeyboardInterrupt):
+            except Exception as e:
+                print("Error receiving frame:", e)
                 print("Stream ended.")
                 should_continue = False
             finally:
                 cv2.destroyAllWindows()
                 await sio.disconnect()
-                await pc.close()
 
     @sio.on('peerconnectSignaling')
     async def on_peerconnectSignaling(data):
@@ -231,8 +319,12 @@ async def main(args):
         print(f"ICE Gathering State is now: {pc.iceGatheringState}")
     
     await sio.wait()
+    await pc.close()
         
-        
+async def continuous_run(args):
+    while True:
+        await main(args)
+        print('[main loop] restarting...')        
 
 if __name__ == "__main__":
     arg = argparse.ArgumentParser()
@@ -241,5 +333,15 @@ if __name__ == "__main__":
     arg.add_argument("--padded", default=False, type=bool)
     arg.add_argument("--inferenced", default=False, type=bool)
     args = arg.parse_args()
-    asyncio.run(main(args))
+    loop = asyncio.get_event_loop()
+    try:
+        loop.run_until_complete(continuous_run(args))
+    except KeyboardInterrupt:
+        print("KeyboardInterrupt")
+        should_continue = False
+    except Exception as e:
+        print("Error:", e)
+    finally:
+        loop.close()
+
 

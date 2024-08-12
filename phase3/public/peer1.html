@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Peer 1</title>
     <style>
-        body {
+        body, html {
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -13,31 +13,176 @@
             height: 100vh;
             background-color: #f0f0f0;
             font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden; /* 確保沒有滾動條 */
         }
-        video {
-            max-width: 100%;
-            max-height: 80%;
+        #localVideo {
+            position: fixed; /* 使用 fixed 位置使其始終在視口內 */
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            min-width: 100%;
+            min-height: 100%;
+            width: auto;
+            height: auto;
+            background-size: cover;
+            overflow: hidden;
+            display: none;
         }
-        #status {
-            margin-top: 20px;
+        #canvas{
+            position: absolute;
+            left: 0;
+            top: 0;
+            display: none;
+        }
+        #toggleButton {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
             font-size: 16px;
+            cursor: pointer;
+            z-index: 100; /* 確保在最上層 */
         }
+        #fullscreenButton {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            z-index: 100; /* 確保在最上層 */
+        }
+        #setServerIP{
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .info {
+            background-color: #fff; /* 設置背景顏色為白色 */
+            border-left: 5px solid #007BFF; /* 左側添加藍色邊框以增強視覺效果 */
+            padding: 10px 20px; /* 內部間距 */
+            margin-bottom: 10px; /* 每個信息框之間的間距 */
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1); /* 添加陰影以增加立體感 */
+            font-size: 16px; /* 字體大小 */
+            color: #333; /* 字體顏色 */
+        }
+        /* 表格樣式 */
+        table {
+            width: 100%; /* 表格寬度為整個容器的寬度 */
+            border-collapse: collapse; /* 邊框合併為單一邊框 */
+            margin: 20px 0; /* 上下邊距 */
+        }
+
+        /* 表頭樣式 */
+        th {
+            background-color: #007BFF; /* 藍色背景 */
+            color: white; /* 白色文字 */
+            padding: 10px; /* 內部間距 */
+            text-align: left; /* 文字對齊方式 */
+        }
+
+        /* 單元格樣式 */
+        td {
+            background-color: #ffffff;
+            padding: 8px;
+            border: 1px solid #ccc; /* 輕微的邊框 */
+        }
+        /* 基本重設樣式，確保在所有瀏覽器中外觀一致 */
+        select, input[type="text"] {
+            padding: 8px 12px; /* 添加內填充，增加點擊範圍和視覺舒適度 */
+            margin: 8px 0; /* 確保元素之間有適當的間隔 */
+            box-sizing: border-box; /* 避免邊框和內填充影響元素的最終尺寸 */
+            border: 1px solid #ccc; /* 設置一個基本邊框 */
+            border-radius: 4px; /* 添加圓角 */
+            font-size: 16px; /* 保證文字大小合適，易於閱讀 */
+            line-height: 1.5; /* 行高增加讀取舒適度 */
+        }
+
+        /* 懸停效果 */
+        select:hover, input[type="text"]:hover {
+            border-color: #888; /* 懸停時改變邊框顏色 */
+        }
+
+        /* 獲得焦點時的樣式 */
+        select:focus, input[type="text"]:focus {
+            border-color: #0056b3; /* 焦點時邊框顏色更鮮明 */
+            outline: none; /* 移除焦點時的預設藍框 */
+            box-shadow: 0 0 5px rgba(0, 86, 179, 0.25); /* 添加輕微的陰影，增加焦點效果 */
+        }
+
+        /* 為不同瀏覽器的下拉箭頭添加自定義樣式 */
+        select {
+            -webkit-appearance: none; /* Chrome, Safari, Opera */
+            -moz-appearance: none; /* Firefox */
+            appearance: none;
+            background-repeat: no-repeat;
+            background-position: right 0.75rem center;
+            background-size: 12px 12px;
+            padding-right: 2rem; /* 確保文字不會蓋到箭頭 */
+        }
+
     </style>
 </head>
 <body>
-    <h1>Peer 1</h1>
+    <button id="toggleButton">顯示視頻</button>
+    <button id="fullscreenButton" onclick="toggleFullscreen()">切換全螢幕</button>
     <video id="localVideo" autoplay playsinline></video>
+    <canvas id="canvas"></canvas>
     <div>
         <input type="text" id="serverIp" placeholder="Enter Signaling Server IP">
-        <select id="resolution" value="640x480">
-            <option value="640x480">640x480</option>
-            <option value="1280x960">1280x960</option>
-            <option value="1920x1280">1920x1280</option>
+        <select id="resolution" value="1920x1080">
+            <option value="640x360">640x360</option> <!-- 16:9 -->
+            <option value="1280x720">1280x720</option>
+            <option value="1920x1080" selected>1920x1080</option>
         </select>
-
-        <button onclick="updateServerIp()">Set Server IP</button>
+        
+        <button onclick="updateServerIp()" id="setServerIP">Set Server IP</button>
     </div>
-    <div id="status">Waiting for server IP...</div>
+    <table>
+        <thead>
+            <tr>
+                <th>Category</th>
+                <th>Message</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Status</td>
+                <td id="status">Waiting for server IP...</td>
+            </tr>
+            <tr>
+                <td>BBOX</td>
+                <td id="bbox">Haven't received any message.</td>
+            </tr>
+            <tr>
+                <td>Data Channel RTT</td>
+                <td id="RTT">Haven't received any message.</td>
+            </tr>
+            <tr>
+                <td>Remote RTT</td>
+                <td id="rRTT">--</td>
+            </tr>
+            <tr>
+                <td>Inference RTT</td>
+                <td id="iRTT">--</td>
+            </tr>
+            <tr>
+                <td>Source resolution</td>
+                <td id="s-res">--</td>
+            </tr>
+            <tr>
+                <td>Actual sent resolution</td>
+                <td id="res">--</td>
+            </tr>
+            <tr>
+                <td>Quality Limitation Reason</td>
+                <td id="qlr">--</td>
+            </tr>
+        </tbody>
+    </table>
     <script src="socket-io.js"></script>
     <script src="peer1.js"></script>
 </body>
