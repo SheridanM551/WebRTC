@@ -41,9 +41,8 @@ function findNowRoom(client) {
     });
 }
 
-// auto reconnection
-peer1offer = null;
-
+// peer2 condition
+let peer2condition = false;
 
 io.on('connection', client => {
     const { name } = client.handshake.query; // 獲取客戶端的 name 參數
@@ -59,10 +58,14 @@ io.on('connection', client => {
         client.join(room, () => {
             io.sockets.in(room).emit('roomBroadcast', `${name} 已經加入聊天室！`);
         });
-        // if (peer1offer && name === 'peer2') {
-        //     client.emit('peerconnectSignaling', peer1offer);
-        //     peer1offer = null;
-        // }
+        if (name === 'peer2') {
+            peer2condition = true;
+            client.to(room).emit('peer2Condition', 'ok');
+        } else if (name === 'peer1' && peer2condition) {
+            client.to(room).emit('peer2Condition', 'ok');
+        }
+
+        
     });
 
     client.on('peerconnectSignaling', message => {
@@ -76,6 +79,9 @@ io.on('connection', client => {
 
     client.on('disconnect', () => {
         console.log(`socket 用戶離開 ${client.id} - 名字: ${name}`);
+        if (name === 'peer2') {
+            peer2condition = false;
+        }
     });
 });
 

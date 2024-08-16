@@ -10,8 +10,8 @@ from ultralytics import YOLO
 import onnxruntime as onnx
 import time
 import json
-
-sio = socketio.AsyncClient(ssl_verify=False)
+import os, sys
+sio = socketio.AsyncClient(ssl_verify=False)              # SocketIO
 is_inferencing = False  # 推理鎖定標記
 should_continue = True  # 控制整個迴圈的標記
 frame_count = 0         # 計數推理的幀數
@@ -19,10 +19,11 @@ start_time = None       # 計時開始
 data_channel = None     # DataChannel
 data_channel_opened = False  # DataChannel是否已經打開
 model = None            # 模型
+
 async def connect_to_signaling_server(server_ip, client_name):
+    global sio 
     url = f'https://{server_ip}:3000?name={client_name}'
     await sio.connect(url, socketio_path='/socket.io/')
-
 @sio.event
 async def connect():
     print("Connected to signaling server, waiting for peer1 to send an Offer.")
@@ -31,7 +32,6 @@ async def connect():
 @sio.event
 async def connect_error(data):
     print("Connection failed:", data)
-
 class DroppingQueue(asyncio.Queue):
     '''
         原本的asyncio.Queue不支援queue滿了後，丟棄最早的frame的功能，這可能造成frame堆積。
@@ -152,7 +152,6 @@ async def main(args):
     await init_model(args.model)
 
     pc = RTCPeerConnection()
-
     pc.createDataChannel("dummy channel")
 
     @pc.on('datachannel')
@@ -202,7 +201,7 @@ async def main(args):
     
     @pc.on('track')
     async def on_track_received(track: RemoteStreamTrack):
-        global is_inferencing, should_continue, frame_count, start_time, data_channel_opened
+        global is_inferencing, should_continue, frame_count, start_time, data_channel_opened, sio
         print("Track received, kind:", track.kind)
 
         # 覆寫掉RemoteStreamTrack的asyncio.queue -> DroppingQueue
@@ -261,7 +260,6 @@ async def main(args):
     async def on_peerconnectSignaling(data):
         if data['type'] == 'candidate':
             candidate_data = data['candidate']
-            # print(f"Received ICE Candidate: {candidate_data['candidate']}")
             parts = candidate_data['candidate'].split()
             candidate = RTCIceCandidate(
                 foundation=parts[0][10:],
@@ -278,8 +276,11 @@ async def main(args):
             await pc.addIceCandidate(candidate)
             # print(f"Added ICE Candidate: foundation={candidate.foundation}, component={candidate.component}, protocol={candidate.protocol}, priority={candidate.priority}, ip={candidate.ip}, port={candidate.port}, type={candidate.type}, sdpMid={candidate.sdpMid}, sdpMLineIndex={candidate.sdpMLineIndex}, tcpType={candidate.tcpType}")
         elif data['type'] == 'offer':
-            # print("Received an Offer, sending Answer.")
-            await pc.setRemoteDescription(RTCSessionDescription(sdp=data['sdp']['sdp'], type='offer'))
+            try:
+                await pc.setRemoteDescription(RTCSessionDescription(sdp=data['sdp']['sdp'], type='offer'))
+            except Exception as e:
+                print("Error setting remote description:", e)
+                return
             try:
                 answer = await pc.createAnswer()
                 await pc.setLocalDescription(answer)
@@ -287,7 +288,6 @@ async def main(args):
                     "type": "answer",
                     "sdp": pc.localDescription.sdp,
                 })
-                # print("Answer sent.")
             except Exception as e:
                 print("Error creating answer:", e)
     
@@ -319,12 +319,11 @@ async def main(args):
         print(f"ICE Gathering State is now: {pc.iceGatheringState}")
     
     await sio.wait()
-    await pc.close()
-        
-async def continuous_run(args):
-    while True:
-        await main(args)
-        print('[main loop] restarting...')        
+
+def restart_program():
+    """重启当前程序"""
+    current_script = os.path.abspath(__file__)  # 获取当前脚本的绝对路径
+    os.execl(sys.executable, current_script, *sys.argv)
 
 if __name__ == "__main__":
     arg = argparse.ArgumentParser()
@@ -333,15 +332,9 @@ if __name__ == "__main__":
     arg.add_argument("--padded", default=False, type=bool)
     arg.add_argument("--inferenced", default=False, type=bool)
     args = arg.parse_args()
-    loop = asyncio.get_event_loop()
     try:
-        loop.run_until_complete(continuous_run(args))
-    except KeyboardInterrupt:
-        print("KeyboardInterrupt")
-        should_continue = False
-    except Exception as e:
-        print("Error:", e)
+        asyncio.run(main(args))
     finally:
-        loop.close()
-
-
+        print("Program terminated.")
+        cv2.destroyAllWindows()
+        restart_program()

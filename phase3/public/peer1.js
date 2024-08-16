@@ -25,8 +25,16 @@ function updateServerIp() {
     socket = io(signalingServerUrl, { query: { name: clientName } }); // 傳遞 name 參數
 
     const statusElement = document.getElementById('status');
+    const peer2condition = document.getElementById('I_status');
     peerConnection = new RTCPeerConnection();
-
+    socket.on('peer2Condition', (message) => {
+        if (message === 'ok') {
+            peer2condition.textContent = 'connected';
+        }
+        else {
+            peer2condition.textContent = 'reconnecting...';
+        }
+    });
     socket.on('connect', () => {
         statusElement.textContent = 'Connected to signaling server';
         socket.emit('joinRoom', 'room1'); // 加入房間
