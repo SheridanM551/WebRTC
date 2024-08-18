@@ -125,6 +125,8 @@ def send_bbox_info(results, scale, top, left, class_names, h, w):
             y2 = int((y2 - top) / scale)
 
             conf = scores[i]
+            if conf < 0.5:
+                continue
             cls = int(classes[i])
             label = f'{class_names[cls]} {conf:.2f}'
             bboxes.append({
