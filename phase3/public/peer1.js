@@ -8,7 +8,7 @@ const classColors = [
     "rgb(255, 69, 0)",      // 橘紅
     "rgb(255, 255, 0)"      // 黃
 ];
-
+const classnames = [['màu đậu xanh', 'một ~ hai', 'Sống', 'Chín', 'ba'], ['warna kacang hijau', 'satu ~ dua', 'Mentah', 'Matang', 'tiga']]
 document.getElementById('serverIp').value = window.location.hostname; // 這裡改為使用瀏覽器的 hostname
 function updateServerIp() {
     const serverIp = document.getElementById('serverIp').value;
@@ -195,13 +195,13 @@ function updateServerIp() {
         else if (message.type === 'bbox') {
             const canvas = document.getElementById('canvas');
             const ctx = canvas.getContext('2d');
-    
             // 清除先前的繪製
             ctx.clearRect(0, 0, canvas.width, canvas.height);
     
             if (message.bboxes.length === 0) {
                 document.getElementById('bbox').textContent = 'No target detected';
             } else {
+                lang = document.getElementById('lang').value;
                 // 顯示第一個 bbox 的標籤
                 document.getElementById('bbox').textContent = message.bboxes[0].label;
     
@@ -229,8 +229,16 @@ function updateServerIp() {
     
                     // 添加標籤文字
                     ctx.fillStyle = color;
-                    ctx.font = '16px Arial';
-                    ctx.fillText(`${bbox.label}`, x1, y1 - 11);
+                    ctx.font = "16px 'Noto Sans', sans-serif";
+                    if (lang == 'en') {
+                        ctx.fillText(`${bbox.label}`, x1, y1 - 11);
+                    }
+                    else if (lang == 'vn') {
+                        ctx.fillText(`${classnames[0][bbox.class]}`, x1, y1 - 11);
+                    }
+                    else if (lang == 'bi') {
+                        ctx.fillText(`${classnames[1][bbox.class]}`, x1, y1 - 11);
+                    }
                 });
             }
         }
