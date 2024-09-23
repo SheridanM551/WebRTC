@@ -1,5 +1,7 @@
-# 以WebRTC連接智慧眼鏡與Jetson nano
-學習使用的過程分成多個階段，說明可以參考該周的進度簡報：
+# 在智慧眼鏡上辨識鳳梨成熟度
+![alt text](poster.png)
+# 如何使用
+開發過程分成多個階段，說明可以參考該周的進度簡報。也可以直接使用最後的版本，版本之間互不影響。
 * phase 1 & 2:
     * https://www.canva.com/design/DAGH0z2hlmE/Ra654rumwOIvxpNuZqH8Cg/view?utm_content=DAGH0z2hlmE&utm_campaign=designshare&utm_medium=link&utm_source=editor
 * phase 3:
