@@ -7,5 +7,8 @@
 * phase 3:
     * https://www.canva.com/design/DAGKh-PU9YY/i5f5yY6zF8wwzwuHXgCv-w/view?utm_content=DAGKh-PU9YY&utm_campaign=designshare&utm_medium=link&utm_source=editor
 
-每一個phase都有readme.md，請先閱讀他們。
+* 專題展影片
+    * https://www.canva.com/design/DAGVxIvY_xE/M4GuqHyuAZFxMPwuyunu-Q/watch?utm_content=DAGVxIvY_xE&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=ha470513838 
+
+每一個phase都有readme.md，請先閱讀它們。
 有任何疑問：943089@gmail.com
